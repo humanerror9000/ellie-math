@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ellie • Math Practice (MVP)</title>
+  <style>
+    :root{--bg:#f7f7fb;--card:#fff;--ink:#111827;--muted:#6b7280;--a:#60a5fa;--b:#34d399;}
+    html,body{height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;}
+    .wrap{max-width:980px;margin:24px auto;padding:16px;}
+    .card{background:var(--card);border-radius:16px;box-shadow:0 6px 20px rgba(0,0,0,.06);padding:16px;margin-bottom:14px;}
+    h1{margin:0;font-size:clamp(20px,3vw,30px)}
+    .muted{color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media(max-width:860px){.grid{grid-template-columns:1fr}}
+    label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+    select,input,button{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:12px;font-size:16px}
+    button{cursor:pointer}
+    button.primary{background:var(--a);border:none;color:#0b2a66;font-weight:800}
+    button.good{background:var(--b);border:none;color:#064e3b;font-weight:800}
+    .vsub{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;display:inline-block;padding:12px 14px;border-radius:14px;background:#fff;border:1px solid #e5e7eb}
+    .vsub .row{display:flex;justify-content:flex-end;gap:6px;font-size:28px;line-height:1.2}
+    .vsub .op{width:1.2ch;color:#6b7280;text-align:center}
+    .vsub .bar{border-top:2px solid #dbeafe;margin:6px 0}
+    .digits span{display:inline-block;width:1ch;text-align:center}
+    .rowline{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#eef2ff;border:1px solid #e0e7ff;font-size:13px}
+    .msg{margin-top:10px;padding:10px 12px;border-radius:12px;background:#f9fafb;border:1px solid #eef2f7}
+    .msg strong{display:block;margin-bottom:6px}
+    details{margin-top:10px}
+    summary{cursor:pointer;font-weight:700}
+    .step{margin:6px 0}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Ellie • Math Practice</h1>
+      <div class="muted">Interactive practice that adapts (start with subtraction; we’ll add more topics after this works).</div>
+    </div>
+
+    <div class="card grid">
+      <div>
+        <label>Topic</label>
+        <select id="topic">
+          <option value="sub" selected>Subtraction</option>
+          <option value="mul" disabled>Multiplication (next)</option>
+          <option value="angles" disabled>Angles (later)</option>
+        </select>
+      </div>
+      <div>
+        <label>Digits</label>
+        <select id="digits">
+          <option value="2">2 digits</option>
+          <option value="3" selected>3 digits</option>
+          <option value="4">4 digits</option>
+        </select>
+      </div>
+      <div>
+        <label>Regrouping</label>
+        <select id="regroup">
+          <option value="mix" selected>Mix</option>
+          <option value="must">Must borrow</option>
+          <option value="none">No borrowing</option>
+        </select>
+      </div>
+      <div>
+        <label>Difficulty (auto)</label>
+        <select id="difficulty">
+          <option value="easy" selected>Easy</option>
+          <option value="med">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+
+      <div>
+        <button class="primary" id="newBtn">New Problem</button>
+      </div>
+      <div>
+        <button class="good" id="checkBtn">Check Answer</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="rowline">
+        <div id="problem"></div>
+        <div style="min-width:220px">
+          <label>Your answer</label>
+          <input id="answer" inputmode="numeric" placeholder="Type the answer" />
+          <div class="muted" style="margin-top:6px;font-size:13px">Tip: Luciana can still do work in her notebook.</div>
+        </div>
+        <div class="pill" id="stats">✅ 0 correct • ↺ 0 try again</div>
+      </div>
+
+      <div class="msg" id="ellieMsg">
+        <strong>Ellie</strong>
+        <div id="ellieText">Hi Luciana! Press <b>New Problem</b> and we’ll start. 💛</div>
+      </div>
+
+      <details id="stepsBox">
+        <summary>Show Ellie’s steps (borrowing explanation)</summary>
+        <div id="steps"></div>
+      </details>
+    </div>
+  </div>
+
+<script>
+  // ===== Helpers =====
+  const places = ["ones","tens","hundreds","thousands","ten-thousands"];
+  const randInt=(min,max)=>Math.floor(Math.random()*(max-min+1))+min;
+  const pad=(n,len)=>String(n).padStart(len,'0');
+
+  function requiresBorrow(a,b){
+    const len = Math.max(String(a).length,String(b).length);
+    let top = pad(a,len).split('').map(Number);
+    let bot = pad(b,len).split('').map(Number);
+    let borrow=0, any=false;
+    for(let i=len-1;i>=0;i--){
+      let t = top[i]-borrow;
+      if(t<bot[i]){ any=true; borrow=1; } else borrow=0;
+    }
+    return any;
+  }
+
+  function generateSubtraction(digits, mode, difficulty){
+    let min = 10**(digits-1), max = 10**digits - 1;
+    // difficulty tweaks: easy -> smaller bottom, hard -> closer numbers, more borrows
+    for(let tries=0; tries<800; tries++){
+      let a = randInt(min, max);
+      let bMax = a;
+      let bMin = (difficulty==='easy') ? Math.floor(a*0.1) : (difficulty==='hard' ? Math.floor(a*0.6) : Math.floor(a*0.3));
+      bMin = Math.max(min, Math.min(bMin, a));
+      let b = randInt(bMin, bMax);
+      const need = requiresBorrow(a,b);
+      if(mode==='must' && !need) continue;
+      if(mode==='none' && need) continue;
+      return {a,b};
+    }
+    return {a:max,b:max-1};
+  }
+
+  function digitsSpans(n,len){
+    const s=String(n).padStart(len,' ');
+    return '<span class="digits">'+[...s].map(ch=>`<span>${ch===' ' ? '&nbsp;' : ch}</span>`).join('')+'</span>';
+  }
+
+  function verticalSubHTML(a,b){
+    const len=Math.max(String(a).length,String(b).length);
+    return `
+      <div class="vsub" role="img" aria-label="vertical subtraction">
+        <div class="row"><span class="op">&nbsp;</span>${digitsSpans(a,len)}</div>
+        <div class="row"><span class="op">−</span>${digitsSpans(b,len)}</div>
+        <div class="bar"></div>
+        <div class="row"><span class="op">=</span>${digitsSpans("?",len)}</div>
+      </div>`;
+  }
+
+  function subtractionSteps(a,b){
+    const len = Math.max(String(a).length,String(b).length);
+    let top = pad(a,len).split('').map(Number);
+    let bot = pad(b,len).split('').map(Number);
+
+    let steps=[];
+    let borrow=0;
+    for(let i=len-1;i>=0;i--){
+      let place = places[len-1-i] || "place";
+      let t = top[i]-borrow;
+      let d = bot[i];
+
+      if(t < d){
+        steps.push(`In the ${place} place: ${t} is less than ${d}, so we borrow 1 from the next place (to the left). Then ${t}+10 = ${t+10}.`);
+        t += 10;
+        borrow = 1;
+      } else {
+        borrow = 0;
+      }
+
+      steps.push(`Now compute ${t} − ${d} = ${t-d} in the ${place} place.`);
+    }
+    steps.push(`Final answer: ${a} − ${b} = ${a-b}.`);
+    return steps;
+  }
+
+  // ===== State =====
+  let current = null;
+  let correct=0, wrong=0;
+
+  const $ = (id)=>document.getElementById(id);
+
+  function say(text){
+    $('ellieText').innerHTML = text;
+  }
+  function updateStats(){
+    $('stats').textContent = `✅ ${correct} correct • ↺ ${wrong} try again`;
+  }
+
+  function newProblem(){
+    $('steps').innerHTML = '';
+    $('stepsBox').open = false;
+
+    const topic = $('topic').value;
+    const digits = +$('digits').value;
+    const mode = $('regroup').value;
+    const difficulty = $('difficulty').value;
+
+    if(topic==='sub'){
+      current = generateSubtraction(digits, mode, difficulty);
+      $('problem').innerHTML = verticalSubHTML(current.a, current.b);
+      $('answer').value='';
+      $('answer').focus();
+      say(`Okay! Try this in your notebook. When you’re ready, type your answer and press <b>Check Answer</b>.`);
+    }
+  }
+
+  function checkAnswer(){
+    if(!current){ say(`Press <b>New Problem</b> first 🙂`); return; }
+    const user = $('answer').value.trim();
+    if(user===''){ say(`Type your answer first, then we’ll check it together.`); return; }
+
+    const ans = current.a - current.b;
+    const num = Number(user);
+
+    if(Number.isNaN(num)){
+      say(`Hmm, I can’t read that as a number. Try typing only digits.`); return;
+    }
+
+    if(num === ans){
+      correct++;
+      updateStats();
+      say(`✅ Yes! That’s correct. High five! Want another one?`);
+      $('steps').innerHTML = '';
+      $('stepsBox').open = false;
+    } else {
+      wrong++;
+      updateStats();
+      say(`Almost! That’s not it — but you’re close. Tap <b>Show Ellie’s steps</b> and I’ll show you the borrowing.`);
+
+      const steps = subtractionSteps(current.a, current.b);
+      $('steps').innerHTML = steps.map(s=>`<div class="step">• ${s}</div>`).join('');
+      $('stepsBox').open = true;
+    }
+  }
+
+  $('newBtn').addEventListener('click', newProblem);
+  $('checkBtn').addEventListener('click', checkAnswer);
+  $('answer').addEventListener('keydown', (e)=>{ if(e.key==='Enter') checkAnswer(); });
+
+  // start
+  updateStats();
+  newProblem();
+</script>
+</body>
+</html>
