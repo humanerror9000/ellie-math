@@ -2,8 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ellie • Math Practice (MVP)</title>
+
+  <!-- iPad / iOS web-app behavior -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Ellie Math">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Ellie • Math Practice</title>
+
+  <!-- Manifest + icons (icons optional for now) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#60a5fa">
+
   <style>
     :root{--bg:#f7f7fb;--card:#fff;--ink:#111827;--muted:#6b7280;--a:#60a5fa;--b:#34d399;}
     html,body{height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;}
@@ -18,25 +29,36 @@
     button{cursor:pointer}
     button.primary{background:var(--a);border:none;color:#0b2a66;font-weight:800}
     button.good{background:var(--b);border:none;color:#064e3b;font-weight:800}
+    .rowline{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#eef2ff;border:1px solid #e0e7ff;font-size:13px}
+
+    .msg{margin-top:10px;padding:10px 12px;border-radius:12px;background:#f9fafb;border:1px solid #eef2f7}
+    .msg strong{display:block;margin-bottom:6px}
+
+    details{margin-top:10px}
+    summary{cursor:pointer;font-weight:700}
+    .step{margin:6px 0}
+
+    /* Vertical subtraction card */
     .vsub{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;display:inline-block;padding:12px 14px;border-radius:14px;background:#fff;border:1px solid #e5e7eb}
     .vsub .row{display:flex;justify-content:flex-end;gap:6px;font-size:28px;line-height:1.2}
     .vsub .op{width:1.2ch;color:#6b7280;text-align:center}
     .vsub .bar{border-top:2px solid #dbeafe;margin:6px 0}
     .digits span{display:inline-block;width:1ch;text-align:center}
-    .rowline{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
-    .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#eef2ff;border:1px solid #e0e7ff;font-size:13px}
-    .msg{margin-top:10px;padding:10px 12px;border-radius:12px;background:#f9fafb;border:1px solid #eef2f7}
-    .msg strong{display:block;margin-bottom:6px}
-    details{margin-top:10px}
-    summary{cursor:pointer;font-weight:700}
-    .step{margin:6px 0}
+
+    /* Video area */
+    .videoBox{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+    .videoBox video{width:min(360px, 100%);border-radius:16px;background:#000}
+    .tiny{font-size:12px;color:var(--muted)}
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <div class="card">
       <h1>Ellie • Math Practice</h1>
-      <div class="muted">Interactive practice that adapts (start with subtraction; we’ll add more topics after this works).</div>
+      <div class="muted">Interactive practice. Topics: Subtraction + Multiplication. (Videos optional.)</div>
     </div>
 
     <div class="card grid">
@@ -44,32 +66,42 @@
         <label>Topic</label>
         <select id="topic">
           <option value="sub" selected>Subtraction</option>
-          <option value="mul" disabled>Multiplication (next)</option>
-          <option value="angles" disabled>Angles (later)</option>
+          <option value="mul">Multiplication</option>
         </select>
       </div>
+
       <div>
-        <label>Digits</label>
+        <label>Difficulty</label>
+        <select id="difficulty">
+          <option value="easy" selected>Easy</option>
+          <option value="med">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+
+      <div id="subControls">
+        <label>Digits (subtraction)</label>
         <select id="digits">
           <option value="2">2 digits</option>
           <option value="3" selected>3 digits</option>
           <option value="4">4 digits</option>
         </select>
       </div>
-      <div>
-        <label>Regrouping</label>
+
+      <div id="subControls2">
+        <label>Regrouping (borrowing)</label>
         <select id="regroup">
           <option value="mix" selected>Mix</option>
           <option value="must">Must borrow</option>
           <option value="none">No borrowing</option>
         </select>
       </div>
-      <div>
-        <label>Difficulty (auto)</label>
-        <select id="difficulty">
-          <option value="easy" selected>Easy</option>
-          <option value="med">Medium</option>
-          <option value="hard">Hard</option>
+
+      <div id="mulControls" style="display:none">
+        <label>Multiplication range</label>
+        <select id="mulRange">
+          <option value="facts" selected>Facts (0–12)</option>
+          <option value="twoByOne">2-digit × 1-digit</option>
         </select>
       </div>
 
@@ -82,29 +114,43 @@
     </div>
 
     <div class="card">
-      <div class="rowline">
-        <div id="problem"></div>
-        <div style="min-width:220px">
-          <label>Your answer</label>
-          <input id="answer" inputmode="numeric" placeholder="Type the answer" />
-          <div class="muted" style="margin-top:6px;font-size:13px">Tip: Luciana can still do work in her notebook.</div>
+      <div class="videoBox">
+        <div>
+          <video id="ellieVideo" playsinline muted controls></video>
+          <div class="tiny">When videos are added, Ellie will speak here. Until then, text works as normal.</div>
         </div>
-        <div class="pill" id="stats">✅ 0 correct • ↺ 0 try again</div>
-      </div>
 
-      <div class="msg" id="ellieMsg">
-        <strong>Ellie</strong>
-        <div id="ellieText">Hi Luciana! Press <b>New Problem</b> and we’ll start. 💛</div>
-      </div>
+        <div style="flex:1;min-width:220px">
+          <div class="rowline">
+            <div id="problem"></div>
+            <div style="min-width:220px">
+              <label>Your answer</label>
+              <input id="answer" inputmode="numeric" placeholder="Type the answer" />
+              <div class="muted" style="margin-top:6px;font-size:13px">Tip: Luciana can do work in her notebook.</div>
+            </div>
+            <div class="pill" id="stats">✅ 0 correct • ↺ 0 try again</div>
+          </div>
 
-      <details id="stepsBox">
-        <summary>Show Ellie’s steps (borrowing explanation)</summary>
-        <div id="steps"></div>
-      </details>
+          <div class="msg" id="ellieMsg">
+            <strong>Ellie</strong>
+            <div id="ellieText">Hi Luciana! Press <b>New Problem</b> and we’ll start. 💛</div>
+          </div>
+
+          <details id="stepsBox">
+            <summary>Show Ellie’s steps / hint</summary>
+            <div id="steps"></div>
+          </details>
+        </div>
+      </div>
     </div>
   </div>
 
 <script>
+  // Register service worker (helps iPad treat it like an app + cache)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+  }
+
   // ===== Helpers =====
   const places = ["ones","tens","hundreds","thousands","ten-thousands"];
   const randInt=(min,max)=>Math.floor(Math.random()*(max-min+1))+min;
@@ -122,9 +168,9 @@
     return any;
   }
 
+  // Subtraction generator
   function generateSubtraction(digits, mode, difficulty){
     let min = 10**(digits-1), max = 10**digits - 1;
-    // difficulty tweaks: easy -> smaller bottom, hard -> closer numbers, more borrows
     for(let tries=0; tries<800; tries++){
       let a = randInt(min, max);
       let bMax = a;
@@ -134,9 +180,27 @@
       const need = requiresBorrow(a,b);
       if(mode==='must' && !need) continue;
       if(mode==='none' && need) continue;
-      return {a,b};
+      return {kind:'sub', a,b};
     }
-    return {a:max,b:max-1};
+    return {kind:'sub', a:max,b:max-1};
+  }
+
+  // Multiplication generator
+  function generateMultiplication(range, difficulty){
+    if(range === 'facts'){
+      // Facts 0–12 with gentle difficulty
+      const max = (difficulty==='easy') ? 5 : (difficulty==='med' ? 10 : 12);
+      const a = randInt(0, max);
+      const b = randInt(0, max);
+      return {kind:'mul', a, b};
+    } else {
+      // 2-digit × 1-digit
+      const aMin = (difficulty==='easy') ? 10 : (difficulty==='med' ? 20 : 30);
+      const aMax = (difficulty==='easy') ? 39 : (difficulty==='med' ? 79 : 99);
+      const a = randInt(aMin, aMax);
+      const b = randInt(2, (difficulty==='hard') ? 9 : 7);
+      return {kind:'mul2x1', a, b};
+    }
   }
 
   function digitsSpans(n,len){
@@ -155,18 +219,23 @@
       </div>`;
   }
 
+  function mulHTML(a,b){
+    return `<div class="vsub" role="img" aria-label="multiplication" style="font-size:22px">
+      <div style="font-weight:800;font-size:26px">${a} × ${b} = ?</div>
+      <div class="tiny">Tip: you can draw groups or use repeated addition.</div>
+    </div>`;
+  }
+
   function subtractionSteps(a,b){
     const len = Math.max(String(a).length,String(b).length);
     let top = pad(a,len).split('').map(Number);
     let bot = pad(b,len).split('').map(Number);
-
     let steps=[];
     let borrow=0;
     for(let i=len-1;i>=0;i--){
       let place = places[len-1-i] || "place";
       let t = top[i]-borrow;
       let d = bot[i];
-
       if(t < d){
         steps.push(`In the ${place} place: ${t} is less than ${d}, so we borrow 1 from the next place (to the left). Then ${t}+10 = ${t+10}.`);
         t += 10;
@@ -174,11 +243,62 @@
       } else {
         borrow = 0;
       }
-
       steps.push(`Now compute ${t} − ${d} = ${t-d} in the ${place} place.`);
     }
     steps.push(`Final answer: ${a} − ${b} = ${a-b}.`);
     return steps;
+  }
+
+  function multiplicationHint(a,b){
+    // Simple hint strategy for kids
+    const steps = [];
+    if (a === 0 || b === 0) {
+      steps.push(`Anything times 0 is 0. So ${a} × ${b} = 0.`);
+      return steps;
+    }
+    if (a === 1) {
+      steps.push(`Anything times 1 is itself. So 1 × ${b} = ${b}.`);
+      return steps;
+    }
+    if (b === 1) {
+      steps.push(`Anything times 1 is itself. So ${a} × 1 = ${a}.`);
+      return steps;
+    }
+    const small = Math.min(a,b);
+    const big = Math.max(a,b);
+    steps.push(`Think of ${a} × ${b} as ${small} groups of ${big}.`);
+    steps.push(`That means: add ${big} + ${big} + ... (${small} times).`);
+    if (small <= 6) {
+      let sum = 0;
+      for (let i=1;i<=small;i++){
+        sum += big;
+        steps.push(`${i}) ${sum}`);
+      }
+      steps.push(`So ${a} × ${b} = ${sum}.`);
+    } else {
+      steps.push(`If that feels long, try breaking it: ${small} × ${big} = (10 × ${big}) + (${small-10} × ${big}) (if small is near 10), or use known facts.`);
+    }
+    return steps;
+  }
+
+  // ===== Video triggers (we’ll add MP4 files later) =====
+  const VIDEO = {
+    welcome: "videos/welcome.mp4",
+    correct: "videos/correct.mp4",
+    tryAgain: "videos/try-again.mp4",
+    explainBorrow: "videos/explain-borrow.mp4",
+    mulWelcome: "videos/mul-welcome.mp4"
+  };
+
+  function playVideo(key){
+    const v = document.getElementById('ellieVideo');
+    const src = VIDEO[key];
+    if(!src) return;
+
+    // Attempt to load; if missing, silently ignore (text still works)
+    v.src = src + "?v=" + Date.now(); // cache-bust while testing
+    v.muted = false;
+    v.play().catch(()=>{ /* iPad may require tap; controls are visible */ });
   }
 
   // ===== State =====
@@ -187,11 +307,21 @@
 
   const $ = (id)=>document.getElementById(id);
 
-  function say(text){
+  function say(text, videoKey=null){
     $('ellieText').innerHTML = text;
+    if(videoKey) playVideo(videoKey);
   }
+
   function updateStats(){
     $('stats').textContent = `✅ ${correct} correct • ↺ ${wrong} try again`;
+  }
+
+  function syncTopicUI(){
+    const t = $('topic').value;
+    const subOn = (t === 'sub');
+    $('subControls').style.display = subOn ? '' : 'none';
+    $('subControls2').style.display = subOn ? '' : 'none';
+    $('mulControls').style.display = subOn ? 'none' : '';
   }
 
   function newProblem(){
@@ -199,16 +329,25 @@
     $('stepsBox').open = false;
 
     const topic = $('topic').value;
-    const digits = +$('digits').value;
-    const mode = $('regroup').value;
     const difficulty = $('difficulty').value;
 
     if(topic==='sub'){
+      const digits = +$('digits').value;
+      const mode = $('regroup').value;
       current = generateSubtraction(digits, mode, difficulty);
       $('problem').innerHTML = verticalSubHTML(current.a, current.b);
       $('answer').value='';
       $('answer').focus();
-      say(`Okay! Try this in your notebook. When you’re ready, type your answer and press <b>Check Answer</b>.`);
+      say(`Okay! Try this in your notebook. When you’re ready, type your answer and press <b>Check Answer</b>.`, "welcome");
+    }
+
+    if(topic==='mul'){
+      const range = $('mulRange').value;
+      current = generateMultiplication(range, difficulty);
+      $('problem').innerHTML = mulHTML(current.a, current.b);
+      $('answer').value='';
+      $('answer').focus();
+      say(`Multiplication time! Try it in your notebook. When you’re ready, type your answer and press <b>Check Answer</b>.`, "mulWelcome");
     }
   }
 
@@ -217,35 +356,46 @@
     const user = $('answer').value.trim();
     if(user===''){ say(`Type your answer first, then we’ll check it together.`); return; }
 
-    const ans = current.a - current.b;
     const num = Number(user);
-
     if(Number.isNaN(num)){
       say(`Hmm, I can’t read that as a number. Try typing only digits.`); return;
     }
 
+    let ans;
+    if(current.kind==='sub') ans = current.a - current.b;
+    else ans = current.a * current.b;
+
     if(num === ans){
       correct++;
       updateStats();
-      say(`✅ Yes! That’s correct. High five! Want another one?`);
+      say(`✅ Yes! That’s correct. High five! Want another one?`, "correct");
       $('steps').innerHTML = '';
       $('stepsBox').open = false;
     } else {
       wrong++;
       updateStats();
-      say(`Almost! That’s not it — but you’re close. Tap <b>Show Ellie’s steps</b> and I’ll show you the borrowing.`);
 
-      const steps = subtractionSteps(current.a, current.b);
-      $('steps').innerHTML = steps.map(s=>`<div class="step">• ${s}</div>`).join('');
-      $('stepsBox').open = true;
+      if(current.kind==='sub'){
+        say(`Almost! That’s not it — but you’re close. Tap <b>Show Ellie’s steps</b> and I’ll show you borrowing.`, "tryAgain");
+        const steps = subtractionSteps(current.a, current.b);
+        $('steps').innerHTML = steps.map(s=>`<div class="step">• ${s}</div>`).join('');
+        $('stepsBox').open = true;
+      } else {
+        say(`Nice try. Tap <b>Show Ellie’s steps</b> for a hint — then try again!`, "tryAgain");
+        const steps = multiplicationHint(current.a, current.b);
+        $('steps').innerHTML = steps.map(s=>`<div class="step">• ${s}</div>`).join('');
+        $('stepsBox').open = true;
+      }
     }
   }
 
+  $('topic').addEventListener('change', ()=>{ syncTopicUI(); newProblem(); });
   $('newBtn').addEventListener('click', newProblem);
   $('checkBtn').addEventListener('click', checkAnswer);
   $('answer').addEventListener('keydown', (e)=>{ if(e.key==='Enter') checkAnswer(); });
 
   // start
+  syncTopicUI();
   updateStats();
   newProblem();
 </script>
